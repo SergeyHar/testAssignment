@@ -3,13 +3,15 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
-	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Promotion struct {
@@ -77,7 +79,6 @@ func uploadCSV(file *multipart.FileHeader) error {
 			return err
 		}
 
-		fmt.Println(price)
 		expirationDate, err := time.Parse("2006-01-02 15:04:05 -0700 MST", record[2])
 		if err != nil {
 			fmt.Println(err)
@@ -144,11 +145,28 @@ func getPromotionsByID(c *gin.Context) {
 
 func main() {
 
-	address := "localhost:8080"
+	// Load configuration file
+	viper.SetConfigFile("config.yaml")
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	// Override configuration for production environment
+	env := viper.GetString("APP_ENV")
+	fmt.Println(env)
+	if env == "production" {
+		viper.SetConfigFile("config.prod.yaml")
+		err := viper.MergeInConfig()
+		if err != nil {
+			panic(err)
+		}
+		gin.SetMode("release")
+	}
 
 	router := gin.Default()
 
 	router.GET("/promotions/:id", getPromotionsByID)
 	router.POST("promotions/upload", uploadFile)
-	router.Run(address)
+	router.Run(":" + viper.GetString("port"))
 }
